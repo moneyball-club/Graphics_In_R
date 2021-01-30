@@ -1,0 +1,194 @@
+---
+title: "Graphics in R"
+author: "Austin Chen"
+date: "1/21/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Load in tidyverse and read in file
+
+```{r}
+library(tidyverse)
+hof <- read.csv("~/Desktop/baseball_R-master/data/hofbatting.csv")
+```
+
+```{r}
+head(hof)
+```
+
+```{r}
+View(hof)
+```
+
+Let's say we want to group the hall of fame batters by Eras. 
+
+```{r}
+hof <- hof %>% 
+  mutate(MidCareer = (From + To) /2, Era = cut(MidCareer, breaks = c(1800, 1900, 1919, 1941, 1960, 1976, 1993, 2050), labels = c("19th Century", "Dead Ball", "Lively Ball", "Integration", "Expansion", "Free Agency", "Long Ball")))
+```
+
+Creates two new columns called MidCareer and Era to our hof data frame which consists of the hall of fame batters. Midcareer is the midway point between the beginning of their career and their end of career. 
+
+To create the Era column, we use the cut function, which takes in the Midcareer and turns it into a factor to determine which era it belongs to. There are 7 eras in this case, for example 1800-1900 is 19th century, 1900-1919 is Dead Ball and etc. 
+
+```{r}
+hof_eras <- summarize(group_by(hof, Era), N= n())
+hof_eras
+```
+
+Here we are able to group the eras in the hof data frame using the group by function and N represents how many players are from that era. For example 19 players are from the 19th century Era.
+
+And we can produce a bar graph to visualize this data. 
+
+```{r}
+ggplot(hof, aes(x = Era)) + geom_bar() + xlab("Baseball Era") + ylab("Number of players")+ ggtitle("Number of Hall of Fame Batters per Era")
+```
+
+The aes part in the ggplot represents horizontal or vertical mapping. x represents horizontal mapping which is Era in this case. We add geom_bar() to specify the type of graph we want. 
+
+For some situations, the bar graph can have multiple categories, so a dot plot is more suitbale. 
+
+```{r}
+ggplot(hof_eras, aes(Era, N)) + geom_point() + xlab("Baseball Era") + ylab("Number of players")+ ggtitle("Number of Hall of Fame Batters per Era") + coord_flip()
+```
+
+## Saving your graphics as a PNG file
+
+```{r}
+ggplot(hof, aes(x = Era)) + 
+  geom_bar() + 
+  xlab("Baseball Era") + 
+  ylab("Number of players")+ 
+  ggtitle("Number of Hall of Fame Batters per Era")
+ggsave("Baseball_Era.png")
+```
+
+The default of ggsave is a png, but we can change this to any file format we want such as jpg and pdf using the argument device. 
+
+## Determining the distribution of a variable
+
+```{r}
+ggplot(hof, aes(OPS)) + geom_histogram()
+```
+
+```{r}
+ggplot(hof, aes(OPS)) + 
+  geom_histogram(breaks = seq(0.4, 1.2, by = 0.1), color = "blue", fill = "white")
+```
+
+The histogram now looks cleaner and less gaps in the graph when we adjust the lengths of our width. 
+
+## Graphics with 2 variables
+
+Standard scatterplot
+
+```{r}
+ggplot(hof, aes(MidCareer, HR)) + geom_point() + geom_smooth()
+```
+
+geom_smooth shows us where most of the data points lie and what the shape of the graph looks like. We see somewhat of a  positive association between MidCareer and Hr. 
+
+```{r}
+library(ggrepel)
+ggplot(hof, aes(MidCareer, HR))+ 
+  geom_point() +
+  geom_smooth() +
+  geom_text_repel(data = filter(hof, HR > 600), aes(MidCareer, HR, label = Player))
+```
+
+We load in the library ggrepel in order to use the function geom_test_repel to label our data points based on our interested points. I was interested in the people who hit over 600 hrs in their career, so we do this by filtering the hof data and labeling the data by Player. 
+
+## Building a Graph Step by Step
+
+```{r}
+p <- ggplot(hof, aes(OBP, SLG)) + geom_point()
+p
+```
+
+As we can see from the plot, there is one outlier at the bottom left, which makes most of the data points grouped together and not spread out. We can eliminate this point by setting the limits for OBP. 
+
+```{r}
+p <- p + xlim(0.25, 0.5) + ylim(0.28, 0.78) + xlab("On Base Percentage") + ylab("Slugging Percentage") + ggtitle("OBP vs. SLG")
+p
+```
+
+A common measure of batting is OPS (On Base plus Slugging) which is just OPS = OBP + SLG. If we want to find the OPS boundaries on the plot, we need to include linear lines, because the statistic is a simple linear equation. For example, a OPS of 1 would be 1 = OBP + SLG, which can be rewrittend as 1-OBP = SLG. Our x vlaue has a slope of -1 with an intercept of 1. 
+
+```{r}
+p <- p + geom_abline(slope = -1, intercept = seq(0.6, 1.1, by = 0.1))
+p
+```
+
+```{r}
+p <- p + annotate("text", x = c(.27, .27,.27,.27,.27, .28), y = c(.32, .42, .52, .62, .72, .78), label = paste("OPS = ", c(0.6, 0.7, 0.8, 0.9, 1.0, 1.1)))
+p
+```
+
+Here we add the labels on the plot by using th annotate function. The x and y arguments are the positions are the graphs. Paste concatenates a string with integers. We can see that this graph tells us that most hall of fame batters had a OPS of around 0.7- 0.9.
+
+```{r}
+hof <- mutate(hof, hr_rate = HR/AB)
+```
+
+## Parallel StripCharts
+
+```{r}
+ggplot(hof, aes(hr_rate, Era)) + geom_jitter(height = 0.1)
+```
+
+## Parallel Boxplots
+
+```{r}
+ggplot(hof, aes(Era, hr_rate)) + geom_boxplot() + coord_flip()
+```
+
+```{r}
+library(Lahman)
+View(Master)
+```
+
+Player's age for a season is defined to be his age on June 30. We make a function to get the birthyear
+
+```{r}
+get_birthyear <- function(Name) {
+  Names <- unlist(strsplit(Name, " "))
+  Master %>% 
+    filter(nameFirst == Names[1], nameLast == Names[2]) %>% 
+    mutate(birthyear = ifelse(birthMonth >= 7, 
+                              birthYear + 1, birthYear),
+           Player = paste(nameFirst, nameLast)) %>% 
+    select(playerID, Player, birthyear)
+}
+```
+
+```{r}
+PlayerInfo <- bind_rows(get_birthyear("Babe Ruth"),
+                        get_birthyear("Hank Aaron"),
+                        get_birthyear("Barry Bonds"),
+                        get_birthyear("Alex Rodriguez"),
+                        get_birthyear("Buster Posey"))
+```
+
+This allows us to receive the PlayerID, Player, and birthyear information in one dataframe.
+
+```{r}
+Batting %>% 
+  inner_join(PlayerInfo, by = "playerID") %>% 
+  mutate(Age = yearID - birthyear) %>% 
+  select(Player, Age, HR) %>% 
+  group_by(Player) %>% 
+  mutate(CHR = cumsum(HR)) -> HRdata
+```
+
+We join the Batting table with the Playerinfo on the unique variable playerid, so we can receive the hr statistics we need. We create a new column to denote the Age and make a new column called CHR (Cumulative Home Runs) after we group by player. We save our query as HRdata.
+
+
+```{r}
+ggplot(HRdata, aes(x = Age, y = CHR, linetype = Player)) + geom_line()
+```
+
